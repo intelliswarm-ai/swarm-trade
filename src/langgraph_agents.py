@@ -695,13 +695,14 @@ class LangGraphAgentWorkflow:
                 if hasattr(self.multimodal_llm, 'chat_with_chart'):
                     return self.multimodal_llm.chat_with_chart(chart_path, prompt)
                 else:
-                    return self.multimodal_llm.analyze_chart_image(chart_path)
+                    return self.multimodal_llm.analyze_chart_image(chart_path, prompt)
             else:
-                # For text-based analysis
+                # For text-based analysis - use chart analysis with a dummy image or create text-only analysis
                 if hasattr(self.multimodal_llm, 'analyze_with_context'):
                     return self.multimodal_llm.analyze_with_context(prompt)
                 else:
-                    return {"analysis": "LLM analysis not available", "success": False}
+                    # Create a text-only analysis using the chart analysis method
+                    return self.multimodal_llm.analyze_chart_image(None, prompt)
         except Exception as e:
             return {"analysis": f"LLM error: {str(e)}", "success": False}
     

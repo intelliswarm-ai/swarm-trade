@@ -244,7 +244,7 @@ class ForexSignalApp:
                 elif user_input.startswith('/agents'):
                     parts = user_input.split(' ', 1)
                     if len(parts) > 1:
-                        symbol = parts[1].upper()
+                        symbol = parts[1].upper().replace('$', '')  # Remove $ prefix if present
                         if current_image:
                             print(f"🤖 Starting agentic workflow analysis for {symbol}...")
                             print("🔄 Deploying specialized agents...")
@@ -254,6 +254,7 @@ class ForexSignalApp:
                                 self.display_agent_result(result, symbol)
                             except Exception as e:
                                 print(f"❌ Error in agentic analysis: {str(e)}")
+                                print(f"💡 Debug: Available methods: {[method for method in dir(self.multimodal_llm) if not method.startswith('_')]}")
                         else:
                             print("❌ No image loaded. Use /screenshot or /analyze first")
                     else:
@@ -262,7 +263,7 @@ class ForexSignalApp:
                 elif user_input.startswith('/debate'):
                     parts = user_input.split(' ', 1)
                     if len(parts) > 1:
-                        symbol = parts[1].upper()
+                        symbol = parts[1].upper().replace('$', '')  # Remove $ prefix if present
                         if current_image:
                             print(f"🗣️  Starting agent debate for {symbol}...")
                             print("🤖 Agents are analyzing and debating...")
@@ -272,6 +273,7 @@ class ForexSignalApp:
                                 self.display_debate_result(result, symbol)
                             except Exception as e:
                                 print(f"❌ Error in agent debate: {str(e)}")
+                                print(f"💡 Debug: Available methods: {[method for method in dir(self.multimodal_llm) if not method.startswith('_')]}")
                         else:
                             print("❌ No image loaded. Use /screenshot or /analyze first")
                     else:

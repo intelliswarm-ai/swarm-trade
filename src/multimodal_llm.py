@@ -393,3 +393,65 @@ class MultimodalLLM:
         """
         
         return self.analyze_chart_image(image_path, question)
+    
+    def analyze_with_context(self, prompt):
+        """Analyze text-based context without requiring an image"""
+        try:
+            if not self.check_ollama_connection():
+                return {
+                    'error': 'Ollama not available',
+                    'message': 'Please ensure Ollama is running',
+                    'suggestion': 'Run: ollama run llama3.2-vision:latest'
+                }
+            
+            # For text-only analysis, we don't need an image
+            data = {
+                "model": self.model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.7,
+                    "top_p": 0.9,
+                    "num_predict": 2000
+                }
+            }
+            
+            print(f"🔄 Analyzing context with {self.model}...")
+            
+            try:
+                response = requests.post(
+                    f"{self.base_url}/api/generate",
+                    json=data,
+                    timeout=self.timeout
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    analysis = result.get('response', 'No response received')
+                    
+                    return {
+                        'success': True,
+                        'analysis': analysis,
+                        'model': self.model,
+                        'timestamp': time.time()
+                    }
+                else:
+                    return {
+                        'success': False,
+                        'error': f'HTTP {response.status_code}',
+                        'message': response.text
+                    }
+                    
+            except requests.exceptions.Timeout:
+                return {
+                    'success': False,
+                    'error': 'Request timeout',
+                    'message': f'Request timed out after {self.timeout} seconds'
+                }
+                
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e),
+                'message': 'Failed to analyze context'
+            }

@@ -145,7 +145,7 @@ Works with any trading platform:
 
 ## ⚠️ Disclaimer
 
-This software is for educational and research purposes only. Trading forex carries significant risk and this tool should not be used as the sole basis for trading decisions. Always conduct your own research and consider consulting with a financial advisor.
+This software is for educational and research purposes only. Trading forex and securities carries significant risk and this tool should not be used as the sole basis for trading decisions. Always conduct your own research and consider consulting with a financial advisor.
 
 ## 🤝 Contributing
 

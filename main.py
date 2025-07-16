@@ -8,6 +8,8 @@ from src.enhanced_news_analyzer import EnhancedNewsAnalyzer
 from src.signal_generator import SignalGenerator
 from src.console_display import ConsoleDisplay
 from src.multimodal_llm import MultimodalLLM
+from src.langgraph_agents import LangGraphAgentWorkflow
+from src.agent_tools import AgentTools
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,6 +28,8 @@ class ForexSignalApp:
         self.signal_generator = SignalGenerator()
         self.console_display = ConsoleDisplay()
         self.multimodal_llm = MultimodalLLM()
+        self.agent_tools = AgentTools()
+        self.agent_workflow = LangGraphAgentWorkflow(self.multimodal_llm, self.agent_tools)
         self.use_gui = use_gui
         
     def run_analysis(self):
@@ -98,6 +102,11 @@ class ForexSignalApp:
         print("  /risk - Get risk assessment")
         print("  /sentiment - Get market sentiment analysis")
         print("  /summary - Get comprehensive analysis")
+        print("  /agents [symbol] - Run agentic workflow analysis")
+        print("  /debate [symbol] - Start agent debate for symbol")
+        print("  /consensus - Get consensus from agent analysis")
+        print("  /tools - Show available agent tools")
+        print("  /tool [tool_name] [args] - Execute specific tool")
         print("  /history - Show chat history")
         print("  /clear - Clear chat history")
         print("  /models - Show available models")
@@ -232,6 +241,82 @@ class ForexSignalApp:
                         print(f"🔸 Current timeout: {current_timeout} seconds ({current_timeout//60} minutes)")
                         print("💡 Usage: /timeout <seconds> (e.g., /timeout 600 for 10 minutes)")
                 
+                elif user_input.startswith('/agents'):
+                    parts = user_input.split(' ', 1)
+                    if len(parts) > 1:
+                        symbol = parts[1].upper()
+                        if current_image:
+                            print(f"🤖 Starting agentic workflow analysis for {symbol}...")
+                            print("🔄 Deploying specialized agents...")
+                            try:
+                                import asyncio
+                                result = asyncio.run(self.agent_workflow.run_analysis(symbol, current_image))
+                                self.display_agent_result(result, symbol)
+                            except Exception as e:
+                                print(f"❌ Error in agentic analysis: {str(e)}")
+                        else:
+                            print("❌ No image loaded. Use /screenshot or /analyze first")
+                    else:
+                        print("❌ Please provide symbol: /agents <symbol>")
+                
+                elif user_input.startswith('/debate'):
+                    parts = user_input.split(' ', 1)
+                    if len(parts) > 1:
+                        symbol = parts[1].upper()
+                        if current_image:
+                            print(f"🗣️  Starting agent debate for {symbol}...")
+                            print("🤖 Agents are analyzing and debating...")
+                            try:
+                                import asyncio
+                                result = asyncio.run(self.agent_workflow.run_analysis(symbol, current_image))
+                                self.display_debate_result(result, symbol)
+                            except Exception as e:
+                                print(f"❌ Error in agent debate: {str(e)}")
+                        else:
+                            print("❌ No image loaded. Use /screenshot or /analyze first")
+                    else:
+                        print("❌ Please provide symbol: /debate <symbol>")
+                
+                elif user_input.lower() == '/tools':
+                    print("🛠️  Available Agent Tools:")
+                    print("=" * 40)
+                    tools = self.agent_tools.get_tool_descriptions()
+                    for tool_name, description in tools.items():
+                        print(f"  {tool_name}: {description}")
+                    print("=" * 40)
+                    print("💡 Usage: /tool <tool_name> <args>")
+                
+                elif user_input.startswith('/tool'):
+                    parts = user_input.split(' ', 2)
+                    if len(parts) >= 2:
+                        tool_name = parts[1]
+                        args = parts[2] if len(parts) > 2 else ""
+                        
+                        print(f"🛠️  Executing tool: {tool_name}")
+                        try:
+                            # Parse arguments (simplified)
+                            if args:
+                                # Try to parse as key=value pairs
+                                kwargs = {}
+                                if '=' in args:
+                                    for arg in args.split():
+                                        if '=' in arg:
+                                            key, value = arg.split('=', 1)
+                                            kwargs[key] = value
+                                else:
+                                    # Single argument, assume it's symbol
+                                    kwargs['symbol'] = args
+                                
+                                result = self.agent_tools.execute_tool(tool_name, **kwargs)
+                            else:
+                                result = self.agent_tools.execute_tool(tool_name)
+                            
+                            self.display_tool_result(result, tool_name)
+                        except Exception as e:
+                            print(f"❌ Error executing tool: {str(e)}")
+                    else:
+                        print("❌ Please provide tool name: /tool <tool_name> [args]")
+                
                 elif user_input.strip() and not user_input.startswith('/'):
                     # Regular chat about the current image
                     if current_image:
@@ -262,6 +347,110 @@ class ForexSignalApp:
             print(f"⚠️  LLM failed: {result.get('message', 'Unknown error')}")
             if 'suggestion' in result:
                 print(f"💡 Suggestion: {result['suggestion']}")
+    
+    def display_agent_result(self, result, symbol):
+        """Display agentic workflow result"""
+        if not result:
+            print("❌ No result from agentic workflow")
+            return
+        
+        print(f"\n🤖 Agentic Analysis Results for {symbol}")
+        print("=" * 70)
+        
+        # Final recommendation
+        print(f"📊 Final Recommendation: {result.get('recommendation', 'N/A')}")
+        print(f"🎯 Confidence: {result.get('confidence', 0):.2f}")
+        
+        # Individual agent opinions
+        agent_opinions = result.get('agent_opinions', {})
+        if agent_opinions:
+            print("\n👥 Agent Opinions:")
+            print("-" * 50)
+            
+            for agent_type, opinion in agent_opinions.items():
+                if opinion:
+                    print(f"\n🔸 {agent_type.title().replace('_', ' ')} Agent:")
+                    print(f"   Recommendation: {opinion.get('recommendation', 'N/A')}")
+                    print(f"   Confidence: {opinion.get('confidence', 0):.2f}")
+                    print(f"   Reasoning: {opinion.get('reasoning', 'N/A')[:200]}...")
+        
+        # Debate history
+        debate_history = result.get('debate_history', [])
+        if debate_history:
+            print(f"\n💬 Debate Rounds: {len(debate_history)}")
+            for i, round_info in enumerate(debate_history, 1):
+                print(f"   Round {i}: {round_info.get('topic', 'N/A')}")
+        
+        # Final synthesis
+        synthesis = result.get('synthesis', '')
+        if synthesis:
+            print(f"\n📝 Final Analysis:")
+            print("-" * 50)
+            print(synthesis[:500] + "..." if len(synthesis) > 500 else synthesis)
+        
+        print("=" * 70)
+    
+    def display_debate_result(self, result, symbol):
+        """Display agent debate result with focus on the debate process"""
+        if not result:
+            print("❌ No result from agent debate")
+            return
+        
+        print(f"\n🗣️  Agent Debate Results for {symbol}")
+        print("=" * 70)
+        
+        # Show each agent's initial position
+        agent_opinions = result.get('agent_opinions', {})
+        if agent_opinions:
+            print("🎭 Initial Agent Positions:")
+            print("-" * 50)
+            
+            for agent_type, opinion in agent_opinions.items():
+                if opinion:
+                    print(f"\n🤖 {agent_type.title().replace('_', ' ')} Agent:")
+                    print(f"   Position: {opinion.get('recommendation', 'N/A')}")
+                    print(f"   Confidence: {opinion.get('confidence', 0):.2f}")
+                    print(f"   Key Argument: {opinion.get('reasoning', 'N/A')[:150]}...")
+        
+        # Show debate rounds
+        debate_history = result.get('debate_history', [])
+        if debate_history:
+            print(f"\n💬 Debate Progression ({len(debate_history)} rounds):")
+            print("-" * 50)
+            
+            for i, round_info in enumerate(debate_history, 1):
+                print(f"\n🔄 Round {i}: {round_info.get('topic', 'N/A')}")
+                if 'opinions' in round_info:
+                    for opinion in round_info['opinions']:
+                        agent_name = opinion[0] if isinstance(opinion, tuple) else opinion.get('agent_id', 'Unknown')
+                        print(f"   {agent_name}: {opinion[1].get('recommendation', 'N/A') if isinstance(opinion, tuple) else opinion.get('recommendation', 'N/A')}")
+        
+        # Final consensus
+        print(f"\n🎯 Final Consensus:")
+        print(f"   Recommendation: {result.get('recommendation', 'N/A')}")
+        print(f"   Confidence: {result.get('confidence', 0):.2f}")
+        
+        print("=" * 70)
+    
+    def display_tool_result(self, result, tool_name):
+        """Display tool execution result"""
+        print(f"\n🛠️  Tool Result: {tool_name}")
+        print("=" * 50)
+        
+        if isinstance(result, dict):
+            if 'error' in result:
+                print(f"❌ Error: {result['error']}")
+            else:
+                # Pretty print the result
+                import json
+                try:
+                    print(json.dumps(result, indent=2, default=str))
+                except:
+                    print(str(result))
+        else:
+            print(str(result))
+        
+        print("=" * 50)
     
     def start_continuous_monitoring(self):
         import schedule

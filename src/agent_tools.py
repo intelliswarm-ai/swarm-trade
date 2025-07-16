@@ -5,7 +5,11 @@ import requests
 import json
 from datetime import datetime, timedelta
 import os
-from textblob import TextBlob
+from typing import Any
+try:
+    from textblob import TextBlob
+except ImportError:
+    TextBlob = None
 import ta
 import io
 import contextlib
@@ -26,7 +30,11 @@ class AgentTools:
             "calculate_support_resistance": self.calculate_support_resistance,
             "get_economic_indicators": self.get_economic_indicators,
             "analyze_correlation": self.analyze_correlation,
-            "get_options_data": self.get_options_data
+            "get_options_data": self.get_options_data,
+            # Stock analysis tools
+            "calculator": self.run_calculator,
+            "sec_10k_search": self.run_sec_10k,
+            "sec_10q_search": self.run_sec_10q
         }
     def _get_history(self, ticker, *args, **kwargs):
         """Helper to suppress yfinance stdout/stderr when fetching history."""
@@ -48,7 +56,11 @@ class AgentTools:
             "calculate_support_resistance": "Calculate support and resistance levels. Parameters: symbol (str), period (str)",
             "get_economic_indicators": "Get economic indicators and calendar. Parameters: country (str: US,EU,GB,JP)",
             "analyze_correlation": "Analyze correlation between symbols. Parameters: symbol1 (str), symbol2 (str)",
-            "get_options_data": "Get options chain data. Parameters: symbol (str)"
+            "get_options_data": "Get options chain data. Parameters: symbol (str)",
+            # Stock analysis tools
+            "calculator": "Perform math calculations. Usage: calculator <expression>",
+            "sec_10k_search": "Semantic search within a company's latest 10-K filing. Usage: sec_10k_search <query> <stock_name>",
+            "sec_10q_search": "Semantic search within a company's latest 10-Q filing. Usage: sec_10q_search <query> <stock_name>"
         }
     
     def get_stock_data(self, symbol, period="1mo", interval="1d"):
@@ -215,6 +227,8 @@ class AgentTools:
                 return news_data
             
             sentiments = []
+            if TextBlob is None:
+                return {"error": "textblob not installed; cannot analyze sentiment"}
             for article in news_data["news"]:
                 text = f"{article['title']} {article['summary']}"
                 blob = TextBlob(text)
@@ -521,6 +535,33 @@ class AgentTools:
             
         except Exception as e:
             return {"error": f"Error getting options data for {symbol}: {str(e)}"}
+    
+    def run_calculator(self, operation: str) -> Any:
+        """Run mathematical calculation via CalculatorTool"""
+        try:
+            from src.stock_analysis_tools.calculator_tool import CalculatorTool
+
+            return CalculatorTool()._run(operation)
+        except Exception as e:
+            return {"error": f"Calculator error: {str(e)}"}
+
+    def run_sec_10k(self, search_query: str, stock_name: str) -> Any:
+        """Run semantic search in 10-K filing via SEC10KTool"""
+        try:
+            from src.stock_analysis_tools.sec_tools import SEC10KTool
+
+            return SEC10KTool(stock_name)._run(search_query)
+        except Exception as e:
+            return {"error": f"SEC10KTool error: {str(e)}"}
+
+    def run_sec_10q(self, search_query: str, stock_name: str) -> Any:
+        """Run semantic search in 10-Q filing via SEC10QTool"""
+        try:
+            from src.stock_analysis_tools.sec_tools import SEC10QTool
+
+            return SEC10QTool(stock_name)._run(search_query)
+        except Exception as e:
+            return {"error": f"SEC10QTool error: {str(e)}"}
     
     def execute_tool(self, tool_name, **kwargs):
         """Execute a specific tool"""

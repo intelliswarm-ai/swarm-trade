@@ -22,3 +22,10 @@ langgraph==0.0.32
 langchain-core>=0.1.38
 aiohttp==3.9.1
 feedparser==6.0.10
+# Progress bar for market data collection
+tqdm>=4.65.0
+# Tools for SEC filings querying and RAG functionality
+pydantic>=2.0
+sec-api
+embedchain
+html2text

@@ -1,4 +1,5 @@
 from typing import Dict, List, Any, Optional, TypedDict
+from tqdm import tqdm
 import json
 import asyncio
 from datetime import datetime
@@ -1196,50 +1197,25 @@ class LangGraphAgentWorkflow:
         return action_items[:6]  # Top 6 action items
     
     async def _gather_market_data(self, symbol: str) -> Dict[str, Any]:
-        """Gather comprehensive market data from multiple sources (CrewAI style)"""
-        market_data = {}
-        
-        print(f"📈 Collecting stock data for {symbol}...")
-        try:
-            market_data['stock_data'] = self.data_tools.get_stock_data(symbol)
-        except Exception as e:
-            market_data['stock_data'] = {'error': f'Stock data failed: {str(e)}'}
-        
-        print(f"📰 Gathering financial news for {symbol}...")
-        try:
-            market_data['news'] = self.data_tools.get_financial_news(symbol)
-        except Exception as e:
-            market_data['news'] = {'error': f'News data failed: {str(e)}'}
-        
-        print(f"📊 Calculating technical indicators for {symbol}...")
-        try:
-            market_data['technical_indicators'] = self.data_tools.calculate_technical_indicators(symbol)
-        except Exception as e:
-            market_data['technical_indicators'] = {'error': f'Technical indicators failed: {str(e)}'}
-        
-        print(f"🏢 Fetching company information for {symbol}...")
-        try:
-            market_data['company_info'] = self.data_tools.get_company_info(symbol)
-        except Exception as e:
-            market_data['company_info'] = {'error': f'Company info failed: {str(e)}'}
-        
-        print(f"📈 Analyzing market sentiment for {symbol}...")
-        try:
-            market_data['sentiment'] = self.data_tools.get_market_sentiment(symbol)
-        except Exception as e:
-            market_data['sentiment'] = {'error': f'Sentiment analysis failed: {str(e)}'}
-        
-        print(f"📊 Calculating support/resistance levels for {symbol}...")
-        try:
-            market_data['support_resistance'] = self.data_tools.calculate_support_resistance(symbol)
-        except Exception as e:
-            market_data['support_resistance'] = {'error': f'Support/resistance failed: {str(e)}'}
-        
-        print(f"📈 Analyzing volume profile for {symbol}...")
-        try:
-            market_data['volume_analysis'] = self.data_tools.analyze_volume_profile(symbol)
-        except Exception as e:
-            market_data['volume_analysis'] = {'error': f'Volume analysis failed: {str(e)}'}
-        
-        print("✅ Market data collection completed!")
+        """Gather comprehensive market data from multiple sources (CrewAI style) with a progress bar."""
+        steps = [
+            ("stock_data", "📈 Collecting stock data", self.data_tools.get_stock_data),
+            ("news", "📰 Gathering financial news", self.data_tools.get_financial_news),
+            ("technical_indicators", "📊 Calculating technical indicators", self.data_tools.calculate_technical_indicators),
+            ("company_info", "🏢 Fetching company information", self.data_tools.get_company_info),
+            ("sentiment", "📈 Analyzing market sentiment", self.data_tools.get_market_sentiment),
+            ("support_resistance", "📊 Calculating support/resistance levels", self.data_tools.calculate_support_resistance),
+            ("volume_analysis", "📈 Analyzing volume profile", self.data_tools.analyze_volume_profile),
+        ]
+        market_data: Dict[str, Any] = {}
+        for key, msg, fn in tqdm(steps, desc=f"Market data collection for {symbol}", unit="task"):
+            tqdm.write(f"{msg} for {symbol}...")
+            try:
+                result = fn(symbol)
+                if asyncio.iscoroutine(result):
+                    result = await result
+                market_data[key] = result
+            except Exception as e:
+                market_data[key] = {"error": f"{msg.split()[1]} failed: {str(e)}"}
+        tqdm.write("✅ Market data collection completed!")
         return market_data

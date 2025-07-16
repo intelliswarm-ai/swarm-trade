@@ -1,11 +1,27 @@
 import os
 from typing import Any, Optional, Type
 from pydantic.v1 import BaseModel, Field
+
+# Use CrewStructuredTool from crewai as RAG tool base
 from crewai.tools.structured_tool import CrewStructuredTool as RagTool
-from sec_api import QueryApi  # Make sure to have sec_api installed
-from embedchain.models.data_type import DataType
+
+# Optional sec_api for SEC filings
+try:
+    from sec_api import QueryApi
+except ImportError:
+    QueryApi = None
+# Optional embedchain for RAG data_type
+try:
+    from embedchain.models.data_type import DataType
+except ImportError:
+    DataType = None
+
 import requests
-import html2text
+# html2text optional for HTML to text conversion
+try:
+    import html2text
+except ImportError:
+    html2text = None
 import re
 
 class FixedSEC10KToolSchema(BaseModel):
@@ -27,23 +43,27 @@ class SEC10KTool(RagTool):
     args_schema: Type[BaseModel] = SEC10KToolSchema
 
     def __init__(self, stock_name: Optional[str] = None, **kwargs):
-        print("enter init")
-        # exit()
         super().__init__(**kwargs)
-        if stock_name is not None:
+        if QueryApi is None or html2text is None:
+            print("SEC10KTool disabled: missing 'sec_api' or 'html2text' dependency.")
+            return
+        if stock_name:
             content = self.get_10k_url_content(stock_name)
             if content:
                 self.add(content)
-                # print("exit init")
-                # exit()
-                self.description = f"A tool that can be used to semantic search a query from {stock_name}'s latest 10-K SEC form's content as a txt file."
+                self.description = (
+                    f"A tool to semantic search queries in {stock_name}'s latest 10-K SEC filing."
+                )
                 self.args_schema = FixedSEC10KToolSchema
                 self._generate_description()
 
     def get_10k_url_content(self, stock_name: str) -> Optional[str]:
         """Fetches the URL content as txt of the latest 10-K form for the given stock name."""
+        if QueryApi is None:
+            print("SEC API client not available.")
+            return None
         try:
-            queryApi = QueryApi(api_key=os.environ['SEC_API_API_KEY'])
+            queryApi = QueryApi(api_key=os.environ.get('SEC_API_API_KEY', ''))
             query = {
                 "query": {
                     "query_string": {
@@ -68,6 +88,9 @@ class SEC10KTool(RagTool):
             }
             response = requests.get(url, headers=headers)
             response.raise_for_status()  
+            if html2text is None:
+                print("html2text not available; cannot parse SEC document.")
+                return None
             h = html2text.HTML2Text()
             h.ignore_links = False
             text = h.handle(response.content.decode("utf-8"))
@@ -108,21 +131,27 @@ class SEC10QTool(RagTool):
     args_schema: Type[BaseModel] = SEC10QToolSchema
 
     def __init__(self, stock_name: Optional[str] = None, **kwargs):
-        print("enter init")
-        # exit()
         super().__init__(**kwargs)
-        if stock_name is not None:
+        if QueryApi is None or html2text is None:
+            print("SEC10QTool disabled: missing 'sec_api' or 'html2text' dependency.")
+            return
+        if stock_name:
             content = self.get_10q_url_content(stock_name)
             if content:
                 self.add(content)
-                self.description = f"A tool that can be used to semantic search a query from {stock_name}'s latest 10-Q SEC form's content as a txt file."
+                self.description = (
+                    f"A tool to semantic search queries in {stock_name}'s latest 10-Q SEC filing."
+                )
                 self.args_schema = FixedSEC10QToolSchema
                 self._generate_description()
 
     def get_10q_url_content(self, stock_name: str) -> Optional[str]:
         """Fetches the URL content as txt of the latest 10-Q form for the given stock name."""
+        if QueryApi is None:
+            print("SEC API client not available.")
+            return None
         try:
-            queryApi = QueryApi(api_key=os.environ['SEC_API_API_KEY'])
+            queryApi = QueryApi(api_key=os.environ.get('SEC_API_API_KEY', ''))
             query = {
                 "query": {
                     "query_string": {
@@ -147,6 +176,9 @@ class SEC10QTool(RagTool):
             }
             response = requests.get(url, headers=headers)
             response.raise_for_status()  # Raise an exception for HTTP errors
+            if html2text is None:
+                print("html2text not available; cannot parse SEC document.")
+                return None
             h = html2text.HTML2Text()
             h.ignore_links = False
             text = h.handle(response.content.decode("utf-8"))

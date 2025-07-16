@@ -21,11 +21,16 @@ class ScreenshotCapture:
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
         
-        pyautogui.FAILSAFE = True
-        pyautogui.PAUSE = 0.1
+        if pyautogui:
+            pyautogui.FAILSAFE = True
+            pyautogui.PAUSE = 0.1
     
     def capture_trading_screen(self, region=None):
         try:
+            if not pyautogui:
+                print("❌ pyautogui not available - cannot capture screenshots")
+                return None
+                
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"trading_screenshot_{timestamp}.png"
             filepath = os.path.join(self.output_dir, filename)
@@ -95,6 +100,10 @@ class ScreenshotCapture:
     
     def capture_chart_area(self, chart_coordinates):
         try:
+            if not pyautogui:
+                print("❌ pyautogui not available - cannot capture screenshots")
+                return None
+                
             x, y, width, height = chart_coordinates
             region = (x, y, width, height)
             

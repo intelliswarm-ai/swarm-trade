@@ -7,6 +7,9 @@ import io
 import time
 import threading
 
+# LangSmith tracing disabled to avoid RunTree validation errors
+_LANGSMITH_ENABLED = False
+
 class MultimodalLLM:
     def __init__(self, base_url="http://localhost:11434", model="llama3.2-vision:latest", timeout=300):
         self.base_url = base_url
@@ -418,37 +421,37 @@ class MultimodalLLM:
             
             print(f"🔄 Analyzing context with {self.model}...")
             
-            try:
-                response = requests.post(
-                    f"{self.base_url}/api/generate",
-                    json=data,
-                    timeout=self.timeout
-                )
+            # Send to Ollama
+            response = requests.post(
+                f"{self.base_url}/api/generate",
+                json=data,
+                timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                analysis = result.get('response', 'No response received')
                 
-                if response.status_code == 200:
-                    result = response.json()
-                    analysis = result.get('response', 'No response received')
-                    
-                    return {
-                        'success': True,
-                        'analysis': analysis,
-                        'model': self.model,
-                        'timestamp': time.time()
-                    }
-                else:
-                    return {
-                        'success': False,
-                        'error': f'HTTP {response.status_code}',
-                        'message': response.text
-                    }
-                    
-            except requests.exceptions.Timeout:
+                return {
+                    'success': True,
+                    'analysis': analysis,
+                    'model': self.model,
+                    'timestamp': time.time()
+                }
+            else:
                 return {
                     'success': False,
-                    'error': 'Request timeout',
-                    'message': f'Request timed out after {self.timeout} seconds'
+                    'error': f'HTTP {response.status_code}',
+                    'message': response.text
                 }
-                
+
+        except requests.exceptions.Timeout:
+            return {
+                'success': False,
+                'error': 'Request timeout',
+                'message': f'Request timed out after {self.timeout} seconds'
+            }
+
         except Exception as e:
             return {
                 'success': False,

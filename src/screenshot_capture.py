@@ -1,10 +1,20 @@
-import cv2
+try:
+    import cv2
+except ImportError:
+    cv2 = None
 import numpy as np
-import pyautogui
+try:
+    import pyautogui
+except ImportError:
+    pyautogui = None
 import time
 from datetime import datetime
 import os
-from PIL import Image, ImageGrab
+try:
+    from PIL import Image, ImageGrab
+except ImportError:
+    Image = None
+    ImageGrab = None
 
 class ScreenshotCapture:
     def __init__(self, output_dir="screenshots"):

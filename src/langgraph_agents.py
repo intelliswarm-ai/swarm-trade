@@ -873,10 +873,10 @@ class LangGraphAgentWorkflow:
         
         return result["final_recommendation"]
     
-    async def run_crew_analysis(self, symbol: str, chart_path: str = None) -> Dict[str, Any]:
-        """Run CrewAI-style analysis with enhanced agent personalities"""
+    async def run_swarm_analysis(self, symbol: str, chart_path: str = None) -> Dict[str, Any]:
+        """Run SwarmAI-style analysis with enhanced agent personalities"""
         
-        print(f"🚀 Starting CrewAI-LangGraph Analysis for {symbol}")
+        print(f"🚀 Starting SwarmAI-LangGraph Analysis for {symbol}")
         print("=" * 60)
         
         # Gather market data first (CrewAI style - data-driven)
@@ -927,12 +927,12 @@ class LangGraphAgentWorkflow:
             print()
         
         # Generate final crew report
-        final_report = await self._generate_crew_report(symbol, results, initial_state)
+        final_report = await self._generate_swarm_report(symbol, results, initial_state)
         
         return {
             'symbol': symbol,
             'timestamp': datetime.now().isoformat(),
-            'analysis_type': 'CrewAI-LangGraph',
+            'analysis_type': 'SwarmAI-LangGraph',
             'individual_results': results,
             'final_report': final_report,
             'success': True
@@ -1077,8 +1077,8 @@ class LangGraphAgentWorkflow:
             return items[:5]  # Limit to 5 items
         return []
     
-    async def _generate_crew_report(self, symbol: str, results: List[Dict], state: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate final CrewAI crew report"""
+    async def _generate_swarm_report(self, symbol: str, results: List[Dict], state: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate final SwarmAI swarm report"""
         
         # Aggregate metrics
         avg_confidence = sum(r.get('confidence', 0) for r in results) / len(results) if results else 0
@@ -1096,9 +1096,9 @@ class LangGraphAgentWorkflow:
         # Generate executive summary
         summary_prompt = f"""
         You are the Portfolio Manager synthesizing analysis from your expert team for {symbol}.
-        
-        TEAM ANALYSIS SUMMARY:
-        {self._format_crew_results_summary(results)}
+
+        SWARM ANALYSIS SUMMARY:
+        {self._format_swarm_results_summary(results)}
         
         Create a comprehensive executive summary that:
         1. Highlights key consensus points across all experts
@@ -1131,8 +1131,8 @@ class LangGraphAgentWorkflow:
             'timestamp': datetime.now().isoformat()
         }
     
-    def _format_crew_results_summary(self, results: List[Dict]) -> str:
-        """Format crew results for executive summary"""
+    def _format_swarm_results_summary(self, results: List[Dict]) -> str:
+        """Format swarm results for executive summary"""
         formatted = []
         
         for result in results:

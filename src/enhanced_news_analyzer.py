@@ -1,7 +1,10 @@
 import requests
 import json
 from datetime import datetime, timedelta
-from textblob import TextBlob
+try:
+    from textblob import TextBlob
+except ImportError:
+    TextBlob = None
 import os
 from dotenv import load_dotenv
 import time

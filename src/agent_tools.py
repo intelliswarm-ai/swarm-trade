@@ -7,6 +7,8 @@ from datetime import datetime, timedelta
 import os
 from textblob import TextBlob
 import ta
+import io
+import contextlib
 
 class AgentTools:
     """Tools that the LLM agent can use for comprehensive analysis"""
@@ -26,6 +28,11 @@ class AgentTools:
             "analyze_correlation": self.analyze_correlation,
             "get_options_data": self.get_options_data
         }
+    def _get_history(self, ticker, *args, **kwargs):
+        """Helper to suppress yfinance stdout/stderr when fetching history."""
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+            return ticker.history(*args, **kwargs)
     
     def get_tool_descriptions(self):
         """Get descriptions of all available tools for the LLM"""
@@ -48,8 +55,10 @@ class AgentTools:
         """Fetch stock data using yfinance"""
         try:
             ticker = yf.Ticker(symbol)
-            data = ticker.history(period=period, interval=interval)
-            
+            data = self._get_history(ticker, period=period, interval=interval)
+            # Fallback to full history if no recent data
+            if data.empty and period != "max":
+                data = self._get_history(ticker, period="max", interval=interval)
             if data.empty:
                 return {"error": f"No data found for {symbol}"}
             
@@ -120,7 +129,7 @@ class AgentTools:
                 indicators = ['rsi', 'macd', 'bb', 'sma', 'ema']
             
             ticker = yf.Ticker(symbol)
-            data = ticker.history(period="3mo", interval="1d")
+            data = self._get_history(ticker, period="3mo", interval="1d")
             
             if data.empty:
                 return {"error": f"No data found for {symbol}"}
@@ -288,7 +297,7 @@ class AgentTools:
         """Analyze volume patterns"""
         try:
             ticker = yf.Ticker(symbol)
-            data = ticker.history(period=period, interval="1d")
+            data = self._get_history(ticker, period=period, interval="1d")
             
             if data.empty:
                 return {"error": f"No data found for {symbol}"}
@@ -356,7 +365,7 @@ class AgentTools:
         """Calculate support and resistance levels"""
         try:
             ticker = yf.Ticker(symbol)
-            data = ticker.history(period=period, interval="1d")
+            data = self._get_history(ticker, period=period, interval="1d")
             
             if data.empty:
                 return {"error": f"No data found for {symbol}"}
@@ -434,8 +443,8 @@ class AgentTools:
             ticker1 = yf.Ticker(symbol1)
             ticker2 = yf.Ticker(symbol2)
             
-            data1 = ticker1.history(period="6mo", interval="1d")['Close']
-            data2 = ticker2.history(period="6mo", interval="1d")['Close']
+            data1 = self._get_history(ticker1, period="6mo", interval="1d")['Close']
+            data2 = self._get_history(ticker2, period="6mo", interval="1d")['Close']
             
             if data1.empty or data2.empty:
                 return {"error": f"No data found for {symbol1} or {symbol2}"}
@@ -486,7 +495,7 @@ class AgentTools:
             puts = options_chain.puts
             
             # Get current stock price
-            current_price = ticker.history(period="1d")['Close'].iloc[-1]
+            current_price = self._get_history(ticker, period="1d")['Close'].iloc[-1]
             
             # Find ATM options
             atm_call = calls.iloc[(calls['strike'] - current_price).abs().argsort()[:1]]

@@ -1,6 +1,29 @@
 import json
 from datetime import datetime
-from tabulate import tabulate
+try:
+    from tabulate import tabulate
+    TABULATE_AVAILABLE = True
+except ImportError:
+    TABULATE_AVAILABLE = False
+    def tabulate(data, headers=None, tablefmt="grid"):
+        """Fallback tabulate function"""
+        if not data:
+            return "No data to display"
+        
+        # Simple table formatting fallback
+        if headers:
+            result = " | ".join(str(h) for h in headers) + "\n"
+            result += "-" * len(result) + "\n"
+        else:
+            result = ""
+        
+        for row in data:
+            if isinstance(row, (list, tuple)):
+                result += " | ".join(str(cell) for cell in row) + "\n"
+            else:
+                result += str(row) + "\n"
+        
+        return result
 
 class ConsoleDisplay:
     def __init__(self):

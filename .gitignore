@@ -9,6 +9,9 @@ __pycache__/
 #Screenshots
 screenshots/
 
+#Examples
+examples/
+
 # Distribution / packaging
 .Python
 build/

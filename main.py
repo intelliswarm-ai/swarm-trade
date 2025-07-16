@@ -10,6 +10,8 @@ from src.console_display import ConsoleDisplay
 from src.multimodal_llm import MultimodalLLM
 from src.langgraph_agents import LangGraphAgentWorkflow
 from src.agent_tools import AgentTools
+from src.command_efficiency_evaluator import evaluator, measure_execution
+from src.cache_manager import get_cache_status, clear_all_caches, cleanup_all_caches
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,7 +44,8 @@ class ForexSignalApp:
                 print("❌ Failed to capture screenshot. Please ensure a trading application is running.")
                 return
             
-            print(f"✅ Screenshot captured: {screenshot_path}")
+            from pathlib import Path
+            print(f"✅ Screenshot captured: {Path(screenshot_path).as_posix()}")
             
             chart_data = self.image_analyzer.analyze_chart(screenshot_path)
             news_sentiment = self.news_analyzer.get_forex_sentiment()
@@ -102,8 +105,8 @@ class ForexSignalApp:
         print("  /risk - Get risk assessment")
         print("  /sentiment - Get market sentiment analysis")
         print("  /summary - Get comprehensive analysis")
-        print("  /agents [symbol] - Run agentic workflow analysis")
-        print("  /crew [symbol] - Run CrewAI-style team analysis (no chart required)")
+        print("  /agents [symbol] - Run agentic workflow analysis (no chart required)")
+        print("  /swarm [symbol] - Run SwarmAI-style team analysis (no chart required)")
         print("  /debate [symbol] - Start agent debate for symbol")
         print("  /consensus - Get consensus from agent analysis")
         print("  /tools - Show available agent tools")
@@ -113,6 +116,11 @@ class ForexSignalApp:
         print("  /models - Show available models")
         print("  /switch [model] - Switch to different model")
         print("  /timeout [seconds] - Set timeout (default: 300s)")
+        print("  /efficiency - Show command efficiency report")
+        print("  /metrics - Export efficiency metrics to file")
+        print("  /benchmark - Run command benchmarks")
+        print("  /cache - Show cache status and statistics")
+        print("  /clearcache - Clear all caches to free memory")
         print("  /help - Show this help")
         print("  /exit - Exit chat mode")
         print("=" * 50)
@@ -132,14 +140,17 @@ class ForexSignalApp:
                     
                 elif user_input.lower() == '/screenshot':
                     print("📸 Taking screenshot...")
-                    screenshot_path = self.screenshot_capture.capture_trading_screen()
+                    with measure_execution("screenshot_capture"):
+                        screenshot_path = self.screenshot_capture.capture_trading_screen()
                     if screenshot_path:
                         current_image = screenshot_path
-                        print(f"✅ Screenshot saved: {screenshot_path}")
-                        
+                        from pathlib import Path
+                        print(f"✅ Screenshot saved: {Path(screenshot_path).as_posix()}")
+
                         # Auto-analyze the screenshot
                         print("🤖 Analyzing screenshot...")
-                        result = self.multimodal_llm.analyze_chart_image(screenshot_path)
+                        with measure_execution("screenshot_analysis"):
+                            result = self.multimodal_llm.analyze_chart_image(screenshot_path)
                         self.display_llm_result(result)
                     else:
                         print("❌ Failed to take screenshot")
@@ -150,7 +161,8 @@ class ForexSignalApp:
                         image_path = parts[1]
                         if os.path.exists(image_path):
                             current_image = image_path
-                            result = self.multimodal_llm.analyze_chart_image(image_path)
+                            with measure_execution("image_analysis"):
+                                result = self.multimodal_llm.analyze_chart_image(image_path)
                             self.display_llm_result(result)
                         else:
                             print(f"❌ Image not found: {image_path}")
@@ -159,7 +171,8 @@ class ForexSignalApp:
                 
                 elif user_input.lower() == '/quick':
                     if current_image:
-                        result = self.multimodal_llm.quick_analysis(current_image)
+                        with measure_execution("quick_analysis"):
+                            result = self.multimodal_llm.quick_analysis(current_image)
                         self.display_llm_result(result)
                     else:
                         print("❌ No image loaded. Use /screenshot or /analyze first")
@@ -245,19 +258,18 @@ class ForexSignalApp:
                 elif user_input.startswith('/agents'):
                     parts = user_input.split(' ', 1)
                     if len(parts) > 1:
-                        symbol = parts[1].upper().replace('$', '')  # Remove $ prefix if present
-                        if current_image:
-                            print(f"🤖 Starting agentic workflow analysis for {symbol}...")
-                            print("🔄 Deploying specialized agents...")
-                            try:
-                                import asyncio
-                                result = asyncio.run(self.agent_workflow.run_analysis(symbol, current_image))
-                                self.display_agent_result(result, symbol)
-                            except Exception as e:
-                                print(f"❌ Error in agentic analysis: {str(e)}")
-                                print(f"💡 Debug: Available methods: {[method for method in dir(self.multimodal_llm) if not method.startswith('_')]}")
-                        else:
-                            print("❌ No image loaded. Use /screenshot or /analyze first")
+                        symbol = parts[1].upper().replace('$', '')
+                        print(f"🤖 Starting agentic workflow analysis for {symbol}...")
+                        print("🔄 Deploying specialized agents...")
+                        try:
+                            import asyncio
+                            chart_path = current_image if current_image else None
+                            with measure_execution("agentic_workflow"):
+                                result = asyncio.run(self.agent_workflow.run_analysis(symbol, chart_path))
+                            self.display_agent_result(result, symbol)
+                        except Exception as e:
+                            print(f"❌ Error in agentic analysis: {str(e)}")
+                            print(f"💡 Debug: Available methods: {[m for m in dir(self.multimodal_llm) if not m.startswith('_')]}" )
                     else:
                         print("❌ Please provide symbol: /agents <symbol>")
                 
@@ -265,20 +277,20 @@ class ForexSignalApp:
                     parts = user_input.split(' ', 1)
                     if len(parts) > 1:
                         symbol = parts[1].upper().replace('$', '')  # Remove $ prefix if present
-                        print(f"🚀 Starting CrewAI-style team analysis for {symbol}...")
+                        print(f"🚀 Starting SwarmAI-style team analysis for {symbol}...")
                         print("👥 Deploying specialized expert team...")
                         print("📊 Gathering market data from multiple sources...")
                         try:
                             import asyncio
                             # Use chart if available, but not required for CrewAI analysis
                             chart_path = current_image if current_image else None
-                            result = asyncio.run(self.agent_workflow.run_crew_analysis(symbol, chart_path))
-                            self.display_crew_result(result, symbol)
+                            result = asyncio.run(self.agent_workflow.run_swarm_analysis(symbol, chart_path))
+                            self.display_swarm_result(result, symbol)
                         except Exception as e:
                             print(f"❌ Error in CrewAI analysis: {str(e)}")
                             print(f"💡 Debug: Available methods: {[method for method in dir(self.multimodal_llm) if not method.startswith('_')]}")
                     else:
-                        print("❌ Please provide symbol: /crew <symbol>")
+                        print("❌ Please provide symbol: /swarm <symbol>")
                 
                 elif user_input.startswith('/debate'):
                     parts = user_input.split(' ', 1)
@@ -329,15 +341,50 @@ class ForexSignalApp:
                                     # Single argument, assume it's symbol
                                     kwargs['symbol'] = args
                                 
-                                result = self.agent_tools.execute_tool(tool_name, **kwargs)
+                                with measure_execution(f"tool_{tool_name}"):
+                                    result = self.agent_tools.execute_tool(tool_name, **kwargs)
                             else:
-                                result = self.agent_tools.execute_tool(tool_name)
+                                with measure_execution(f"tool_{tool_name}"):
+                                    result = self.agent_tools.execute_tool(tool_name)
                             
                             self.display_tool_result(result, tool_name)
                         except Exception as e:
                             print(f"❌ Error executing tool: {str(e)}")
                     else:
                         print("❌ Please provide tool name: /tool <tool_name> [args]")
+                
+                elif user_input.lower() == '/efficiency':
+                    print("📊 Generating efficiency report...")
+                    report = evaluator.get_efficiency_report()
+                    self.display_efficiency_report(report)
+                
+                elif user_input.startswith('/metrics'):
+                    parts = user_input.split()
+                    filename = parts[1] if len(parts) > 1 else "command_metrics.json"
+                    print(f"💾 Exporting metrics to {filename}...")
+                    evaluator.export_metrics(filename)
+                    print(f"✅ Metrics exported to {filename}")
+                
+                elif user_input.lower() == '/benchmark':
+                    print("🏁 Running command benchmarks...")
+                    print("This will test various commands for performance analysis...")
+                    self.run_benchmark_tests()
+                
+                elif user_input.lower() == '/cache':
+                    print("💾 Cache Status and Statistics")
+                    print("=" * 40)
+                    cache_status = get_cache_status()
+                    for cache_name, stats in cache_status.items():
+                        print(f"\n{cache_name.replace('_', ' ').title()}:")
+                        for key, value in stats.items():
+                            print(f"  {key.replace('_', ' ').title()}: {value}")
+                
+                elif user_input.lower() == '/clearcache':
+                    print("🧹 Clearing all caches...")
+                    clear_all_caches()
+                    cleanup_stats = cleanup_all_caches()
+                    print("✅ All caches cleared successfully!")
+                    print(f"📊 Cleaned up: {sum(cleanup_stats.values())} expired entries")
                 
                 elif user_input.strip() and not user_input.startswith('/'):
                     # Regular chat about the current image
@@ -370,6 +417,70 @@ class ForexSignalApp:
             if 'suggestion' in result:
                 print(f"💡 Suggestion: {result['suggestion']}")
     
+    def display_efficiency_report(self, report):
+        """Display efficiency evaluation report"""
+        print("\n📊 COMMAND EFFICIENCY REPORT")
+        print("=" * 60)
+        
+        if "summary" in report:
+            print("\n📋 SUMMARY:")
+            for key, value in report["summary"].items():
+                print(f"   {key.replace('_', ' ').title()}: {value}")
+        
+        if "command_analytics" in report and report["command_analytics"]:
+            print("\n📈 COMMAND PERFORMANCE:")
+            for cmd_name, metrics in list(report["command_analytics"].items())[:5]:
+                print(f"\n   {cmd_name}:")
+                print(f"      Success Rate: {metrics['success_rate']}")
+                print(f"      Avg Time: {metrics['avg_execution_time']}")
+                print(f"      Executions: {metrics['total_executions']}")
+        
+        if "performance_rankings" in report:
+            rankings = report["performance_rankings"]
+            if rankings.get("fastest_commands"):
+                print(f"\n🏆 FASTEST COMMANDS:")
+                for cmd in rankings["fastest_commands"][:3]:
+                    print(f"   • {cmd}")
+        
+        if "recommendations" in report:
+            print(f"\n💡 RECOMMENDATIONS:")
+            for rec in report["recommendations"][:3]:
+                print(f"   • {rec}")
+        
+        print("\n" + "=" * 60)
+    
+    def run_benchmark_tests(self):
+        """Run benchmark tests for command evaluation"""
+        print("🔄 Running benchmark tests...")
+        
+        # Test various commands to generate metrics
+        test_symbols = ["AAPL", "GOOGL", "MSFT", "TSLA"]
+        
+        if hasattr(self, 'agent_tools'):
+            print("📊 Testing data fetching tools...")
+            for symbol in test_symbols:
+                try:
+                    with measure_execution(f"benchmark_stock_data"):
+                        self.agent_tools.execute_tool("get_stock_data", symbol=symbol, period="1mo")
+                    print(f"   ✅ {symbol} data fetch completed")
+                except Exception as e:
+                    print(f"   ❌ {symbol} failed: {str(e)}")
+            
+            print("\n🔧 Testing analysis tools...")
+            analysis_tools = ["get_company_info", "calculate_technical_indicators", "get_financial_news"]
+            for tool in analysis_tools:
+                try:
+                    with measure_execution(f"benchmark_{tool}"):
+                        if tool == "calculate_technical_indicators":
+                            self.agent_tools.execute_tool(tool, symbol="AAPL", indicators=["sma_20", "rsi"])
+                        else:
+                            self.agent_tools.execute_tool(tool, symbol="AAPL")
+                    print(f"   ✅ {tool} completed")
+                except Exception as e:
+                    print(f"   ❌ {tool} failed: {str(e)}")
+        
+        print("\n✅ Benchmark tests completed!")
+
     def display_agent_result(self, result, symbol):
         """Display agentic workflow result"""
         if not result:
@@ -454,13 +565,13 @@ class ForexSignalApp:
         
         print("=" * 70)
     
-    def display_crew_result(self, result, symbol):
-        """Display CrewAI-style crew analysis result"""
+    def display_swarm_result(self, result, symbol):
+        """Display SwarmAI-style swarm analysis result"""
         if not result:
             print("❌ No result from CrewAI analysis")
             return
         
-        print(f"\n🚀 CrewAI Expert Team Analysis for {symbol}")
+        print(f"\n🚀 SwarmAI Expert Team Analysis for {symbol}")
         print("=" * 70)
         
         # Final report summary

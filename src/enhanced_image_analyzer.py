@@ -2,9 +2,16 @@ try:
     import cv2
 except ImportError:
     cv2 = None
+
+try:
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    plt = None
+    MATPLOTLIB_AVAILABLE = False
+
 import numpy as np
 from PIL import Image
-import matplotlib.pyplot as plt
 import pandas as pd
 import os
 import re

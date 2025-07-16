@@ -6,6 +6,7 @@ import json
 from datetime import datetime, timedelta
 import os
 from typing import Any
+from .cache_manager import cache_stock_data, cache_news_data, cache_company_info
 try:
     from textblob import TextBlob
 except ImportError:
@@ -63,6 +64,7 @@ class AgentTools:
             "sec_10q_search": "Semantic search within a company's latest 10-Q filing. Usage: sec_10q_search <query> <stock_name>"
         }
     
+    @cache_stock_data(ttl=300)  # Cache for 5 minutes
     def get_stock_data(self, symbol, period="1mo", interval="1d"):
         """Fetch stock data using yfinance"""
         try:
@@ -259,6 +261,7 @@ class AgentTools:
         except Exception as e:
             return {"error": f"Error analyzing sentiment for {symbol}: {str(e)}"}
     
+    @cache_company_info(ttl=3600)  # Cache for 1 hour
     def get_company_info(self, symbol):
         """Get company information"""
         try:

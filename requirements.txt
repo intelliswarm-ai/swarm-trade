@@ -29,3 +29,4 @@ pydantic>=2.0
 sec-api
 embedchain
 html2text
+langsmith>=0.4.4

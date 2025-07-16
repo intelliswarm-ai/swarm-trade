@@ -11,10 +11,10 @@ import threading
 _LANGSMITH_ENABLED = False
 
 class MultimodalLLM:
-    def __init__(self, base_url="http://localhost:11434", model="llama3.2-vision:latest", timeout=300):
+    def __init__(self, base_url="http://localhost:11434", model="llama3.2-vision:latest", timeout=60):
         self.base_url = base_url
         self.model = model
-        self.timeout = timeout  # Default 5 minutes
+        self.timeout = timeout  # Default 1 minute
         self.chat_history = []
         
     def check_ollama_connection(self):

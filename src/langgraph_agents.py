@@ -3,6 +3,7 @@ import json
 import asyncio
 from datetime import datetime
 from enum import Enum
+from dataclasses import dataclass
 
 # Try to import LangGraph components with fallback
 try:
@@ -88,12 +89,18 @@ class AgentState(TypedDict):
     fundamental_analysis: Optional[Dict[str, Any]]
     news_analysis: Optional[Dict[str, Any]]
     risk_analysis: Optional[Dict[str, Any]]
+    research_analysis: Optional[Dict[str, Any]]
+    psychology_analysis: Optional[Dict[str, Any]]
+    trading_strategy: Optional[Dict[str, Any]]
     debate_history: List[Dict[str, Any]]
     consensus: Optional[Dict[str, Any]]
     final_recommendation: Optional[Dict[str, Any]]
     current_round: int
     max_rounds: int
     messages: List[Any]
+    crew_mode: bool
+    agent_configs: Optional[Dict[str, Any]]
+    task_results: Dict[str, Any]
 
 class AgentRole(Enum):
     TECHNICAL = "technical_analyst"
@@ -101,12 +108,38 @@ class AgentRole(Enum):
     NEWS = "news_analyst"
     RISK = "risk_manager"
     MODERATOR = "moderator"
+    RESEARCH = "research_analyst"
+    TRADING_STRATEGIST = "trading_strategist"
+    MARKET_PSYCHOLOGIST = "market_psychologist"
+
+@dataclass
+class CrewAIAgentConfig:
+    """CrewAI-style agent configuration"""
+    role: str
+    goal: str
+    backstory: str
+    verbose: bool = True
+    allow_delegation: bool = False
+    max_iter: int = 3
+    memory: bool = True
+    tools: List[str] = None
+
+@dataclass
+class CrewAITask:
+    """CrewAI-style task definition"""
+    description: str
+    expected_output: str
+    agent_role: AgentRole
+    context: Dict[str, Any] = None
+    tools: List[str] = None
 
 class LangGraphAgentWorkflow:
     def __init__(self, multimodal_llm, data_tools):
         self.multimodal_llm = multimodal_llm
         self.data_tools = data_tools
         self.workflow = self._create_workflow()
+        self.crew_configs = self._create_crew_configs()
+        self.crew_tasks = self._create_crew_tasks()
         
     def _create_workflow(self) -> StateGraph:
         """Create the LangGraph workflow"""
@@ -153,6 +186,116 @@ class LangGraphAgentWorkflow:
         workflow.add_edge("final_synthesizer", END)
         
         return workflow.compile()
+    
+    def _create_crew_configs(self) -> Dict[AgentRole, CrewAIAgentConfig]:
+        """Create CrewAI-style agent configurations"""
+        return {
+            AgentRole.RESEARCH: CrewAIAgentConfig(
+                role="Senior Research Analyst",
+                goal="Gather comprehensive market intelligence and provide data-driven insights",
+                backstory="""You are a seasoned research analyst with 15+ years of experience in financial markets.
+                You excel at gathering, synthesizing, and interpreting complex market data from multiple sources.
+                Your analytical approach is methodical and data-driven, and you're known for uncovering insights
+                that others miss. You have access to advanced research tools and databases.""",
+                tools=["market_data", "news_scraper", "research_database"]
+            ),
+            
+            AgentRole.TECHNICAL: CrewAIAgentConfig(
+                role="Expert Technical Analyst",
+                goal="Analyze price action, chart patterns, and technical indicators to predict market movements",
+                backstory="""You are a world-class technical analyst with deep expertise in chart analysis,
+                pattern recognition, and technical indicators. You've developed proprietary methods for
+                identifying market trends and turning points. Your analysis is precise, actionable, and
+                backed by decades of market observation.""",
+                tools=["chart_analysis", "technical_indicators", "pattern_recognition"]
+            ),
+            
+            AgentRole.FUNDAMENTAL: CrewAIAgentConfig(
+                role="Fundamental Analysis Expert",
+                goal="Evaluate company financials, industry trends, and economic factors to determine intrinsic value",
+                backstory="""You are a fundamental analyst with a PhD in Finance and 20+ years of experience
+                analyzing companies across various sectors. You excel at financial modeling, valuation,
+                and identifying value opportunities. Your approach is thorough, conservative, and focused
+                on long-term value creation.""",
+                tools=["financial_data", "valuation_models", "sector_analysis"]
+            ),
+            
+            AgentRole.RISK: CrewAIAgentConfig(
+                role="Chief Risk Officer",
+                goal="Assess and quantify risks, ensure proper risk management, and protect capital",
+                backstory="""You are a risk management expert with extensive experience in portfolio
+                management and risk assessment. You've navigated multiple market crashes and understand
+                how to protect capital while maximizing returns. Your approach is systematic, quantitative,
+                and focused on downside protection.""",
+                tools=["risk_metrics", "correlation_analysis", "stress_testing"]
+            ),
+            
+            AgentRole.MARKET_PSYCHOLOGIST: CrewAIAgentConfig(
+                role="Market Psychology Specialist",
+                goal="Analyze market sentiment, behavior patterns, and psychological factors",
+                backstory="""You are a market psychology expert with a background in behavioral finance.
+                You understand how emotions, biases, and crowd behavior drive market movements.
+                Your analysis focuses on sentiment indicators, market positioning, and psychological
+                turning points.""",
+                tools=["sentiment_analysis", "social_media_monitoring", "options_flow"]
+            ),
+            
+            AgentRole.TRADING_STRATEGIST: CrewAIAgentConfig(
+                role="Senior Trading Strategist",
+                goal="Develop actionable trading strategies and execution plans",
+                backstory="""You are a veteran trading strategist with 25+ years of experience across
+                multiple asset classes. You excel at translating analysis into practical trading strategies
+                with clear entry/exit criteria. Your strategies are battle-tested and designed for
+                real-world market conditions.""",
+                tools=["strategy_builder", "backtesting", "execution_algorithms"]
+            )
+        }
+    
+    def _create_crew_tasks(self) -> List[CrewAITask]:
+        """Create CrewAI-style tasks"""
+        return [
+            CrewAITask(
+                description="Gather comprehensive market data, news, and research for the given symbol",
+                expected_output="Detailed market intelligence report with key data points and insights",
+                agent_role=AgentRole.RESEARCH,
+                tools=["market_data", "news_scraper", "research_database"]
+            ),
+            
+            CrewAITask(
+                description="Perform detailed technical analysis including chart patterns, indicators, and price action",
+                expected_output="Technical analysis report with specific entry/exit levels and pattern identification",
+                agent_role=AgentRole.TECHNICAL,
+                tools=["chart_analysis", "technical_indicators", "pattern_recognition"]
+            ),
+            
+            CrewAITask(
+                description="Conduct fundamental analysis including financial metrics, valuation, and company health",
+                expected_output="Fundamental analysis report with valuation assessment and financial health score",
+                agent_role=AgentRole.FUNDAMENTAL,
+                tools=["financial_data", "valuation_models", "sector_analysis"]
+            ),
+            
+            CrewAITask(
+                description="Analyze market sentiment, news sentiment, and psychological factors",
+                expected_output="Market psychology report with sentiment analysis and behavioral insights",
+                agent_role=AgentRole.MARKET_PSYCHOLOGIST,
+                tools=["sentiment_analysis", "social_media_monitoring", "options_flow"]
+            ),
+            
+            CrewAITask(
+                description="Assess all risk factors including market risk, company-specific risk, and portfolio impact",
+                expected_output="Comprehensive risk assessment with risk metrics and mitigation strategies",
+                agent_role=AgentRole.RISK,
+                tools=["risk_metrics", "correlation_analysis", "stress_testing"]
+            ),
+            
+            CrewAITask(
+                description="Synthesize all analysis into actionable trading strategies with clear execution plans",
+                expected_output="Trading strategy document with entry/exit criteria, position sizing, and risk management",
+                agent_role=AgentRole.TRADING_STRATEGIST,
+                tools=["strategy_builder", "backtesting", "execution_algorithms"]
+            )
+        ]
     
     def _create_tools(self) -> List:
         """Create tools for the agents to use"""
@@ -728,3 +871,375 @@ class LangGraphAgentWorkflow:
         result = await self.workflow.ainvoke(initial_state)
         
         return result["final_recommendation"]
+    
+    async def run_crew_analysis(self, symbol: str, chart_path: str = None) -> Dict[str, Any]:
+        """Run CrewAI-style analysis with enhanced agent personalities"""
+        
+        print(f"🚀 Starting CrewAI-LangGraph Analysis for {symbol}")
+        print("=" * 60)
+        
+        # Gather market data first (CrewAI style - data-driven)
+        market_data = await self._gather_market_data(symbol)
+        
+        # Initialize enhanced state with CrewAI features
+        initial_state = {
+            "symbol": symbol,
+            "chart_path": chart_path,
+            "market_data": market_data,
+            "technical_analysis": None,
+            "fundamental_analysis": None,
+            "news_analysis": None,
+            "risk_analysis": None,
+            "research_analysis": None,
+            "psychology_analysis": None,
+            "trading_strategy": None,
+            "debate_history": [],
+            "consensus": None,
+            "final_recommendation": None,
+            "current_round": 0,
+            "max_rounds": 3,
+            "messages": [],
+            "crew_mode": True,
+            "agent_configs": self.crew_configs,
+            "task_results": {}
+        }
+        
+        # Execute CrewAI-style tasks sequentially
+        results = []
+        
+        for i, task in enumerate(self.crew_tasks, 1):
+            print(f"🤖 Agent {i}/6: {self.crew_configs[task.agent_role].role}")
+            print(f"📋 Task: {task.description}")
+            
+            try:
+                # Execute task with enhanced agent personality
+                result = await self._execute_crew_task(task, initial_state)
+                results.append(result)
+                initial_state["task_results"][task.agent_role.value] = result
+                
+                print(f"✅ Completed: {result.get('summary', 'Task completed')[:100]}...")
+                
+            except Exception as e:
+                print(f"❌ Task failed: {str(e)}")
+                continue
+            
+            print()
+        
+        # Generate final crew report
+        final_report = await self._generate_crew_report(symbol, results, initial_state)
+        
+        return {
+            'symbol': symbol,
+            'timestamp': datetime.now().isoformat(),
+            'analysis_type': 'CrewAI-LangGraph',
+            'individual_results': results,
+            'final_report': final_report,
+            'success': True
+        }
+    
+    async def _execute_crew_task(self, task: CrewAITask, state: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a CrewAI-style task with enhanced agent personality"""
+        
+        agent_config = self.crew_configs[task.agent_role]
+        
+        # Build CrewAI-style prompt
+        prompt = self._build_crew_prompt(task, agent_config, state)
+        
+        # Execute based on agent type and available data
+        if task.agent_role == AgentRole.TECHNICAL and state.get('chart_path'):
+            # Use chart analysis if available
+            response = self.multimodal_llm.chat_with_chart(state['chart_path'], prompt)
+        else:
+            # Use text-based analysis (standard CrewAI approach)
+            response = self.multimodal_llm.analyze_with_context(prompt)
+        
+        # Parse and structure response
+        parsed_result = self._parse_crew_response(response, task, agent_config)
+        
+        return parsed_result
+    
+    def _build_crew_prompt(self, task: CrewAITask, agent_config: CrewAIAgentConfig, state: Dict[str, Any]) -> str:
+        """Build CrewAI-style prompt with agent personality"""
+        
+        # Get previous task results for context
+        previous_results = self._format_previous_results(state.get('task_results', {}))
+        
+        prompt = f"""
+        🎭 AGENT IDENTITY:
+        Role: {agent_config.role}
+        Goal: {agent_config.goal}
+        
+        📖 BACKSTORY:
+        {agent_config.backstory}
+        
+        🎯 CURRENT TASK:
+        {task.description}
+        
+        📋 EXPECTED OUTPUT:
+        {task.expected_output}
+        
+        📊 CONTEXT:
+        Symbol: {state.get('symbol', 'Unknown')}
+        Market Data: {json.dumps(state.get('market_data', {}), indent=2, default=str)[:1000]}...
+        
+        💭 PREVIOUS TEAM INSIGHTS:
+        {previous_results}
+        
+        🎨 RESPONSE FORMAT:
+        As a {agent_config.role}, provide your analysis in this format:
+        
+        EXECUTIVE_SUMMARY: [3-sentence summary of your key findings]
+        DETAILED_ANALYSIS: [Your comprehensive analysis in your expert domain]
+        CONFIDENCE_SCORE: [0.0 to 1.0]
+        KEY_INSIGHTS: [3-5 bullet points of actionable insights]
+        RECOMMENDATIONS: [Specific recommendations from your expertise]
+        RISKS_IDENTIFIED: [Key risks from your perspective]
+        NEXT_STEPS: [What should be done next based on your analysis]
+        
+        🔍 REMEMBER:
+        - Stay true to your role as {agent_config.role}
+        - Focus on your area of expertise
+        - Provide specific, actionable insights
+        - Consider the team's previous findings
+        - Be confident in your domain knowledge
+        """
+        
+        return prompt
+    
+    def _format_previous_results(self, task_results: Dict[str, Any]) -> str:
+        """Format previous task results for context"""
+        if not task_results:
+            return "No previous team insights available."
+        
+        formatted = []
+        for agent_role, result in task_results.items():
+            summary = result.get('summary', result.get('analysis', 'No summary available'))
+            formatted.append(f"• {agent_role}: {summary[:150]}...")
+        
+        return "\n".join(formatted)
+    
+    def _parse_crew_response(self, response: Dict, task: CrewAITask, agent_config: CrewAIAgentConfig) -> Dict[str, Any]:
+        """Parse CrewAI agent response"""
+        
+        if isinstance(response, dict):
+            analysis_text = response.get("analysis", str(response))
+        else:
+            analysis_text = str(response)
+        
+        return {
+            'agent_role': agent_config.role,
+            'task_description': task.description,
+            'analysis': analysis_text,
+            'summary': self._extract_field(analysis_text, 'EXECUTIVE_SUMMARY'),
+            'confidence': self._extract_confidence_score(analysis_text),
+            'key_insights': self._extract_list_field(analysis_text, 'KEY_INSIGHTS'),
+            'recommendations': self._extract_list_field(analysis_text, 'RECOMMENDATIONS'),
+            'risks': self._extract_list_field(analysis_text, 'RISKS_IDENTIFIED'),
+            'next_steps': self._extract_field(analysis_text, 'NEXT_STEPS'),
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    def _extract_field(self, text: str, field_name: str) -> str:
+        """Extract a specific field from the response"""
+        import re
+        pattern = f'{field_name}:\\s*(.+?)(?=\\n[A-Z_]+:|$)'
+        match = re.search(pattern, text, re.DOTALL)
+        return match.group(1).strip() if match else ""
+    
+    def _extract_confidence_score(self, text: str) -> float:
+        """Extract confidence score"""
+        import re
+        match = re.search(r'CONFIDENCE_SCORE:\s*([0-9.]+)', text)
+        if match:
+            try:
+                return float(match.group(1))
+            except ValueError:
+                pass
+        return 0.5
+    
+    def _extract_list_field(self, text: str, field_name: str) -> List[str]:
+        """Extract a list field from the response"""
+        import re
+        pattern = f'{field_name}:\\s*(.+?)(?=\\n[A-Z_]+:|$)'
+        match = re.search(pattern, text, re.DOTALL)
+        if match:
+            items_text = match.group(1).strip()
+            # Split by bullet points or numbers
+            items = []
+            for line in items_text.split('\n'):
+                line = line.strip()
+                if line:
+                    # Remove common prefixes
+                    line = re.sub(r'^[•\-\d+\.]\s*', '', line)
+                    if line:
+                        items.append(line)
+            return items[:5]  # Limit to 5 items
+        return []
+    
+    async def _generate_crew_report(self, symbol: str, results: List[Dict], state: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate final CrewAI crew report"""
+        
+        # Aggregate metrics
+        avg_confidence = sum(r.get('confidence', 0) for r in results) / len(results) if results else 0
+        
+        # Collect all insights and recommendations
+        all_insights = []
+        all_recommendations = []
+        all_risks = []
+        
+        for result in results:
+            all_insights.extend(result.get('key_insights', []))
+            all_recommendations.extend(result.get('recommendations', []))
+            all_risks.extend(result.get('risks', []))
+        
+        # Generate executive summary
+        summary_prompt = f"""
+        You are the Portfolio Manager synthesizing analysis from your expert team for {symbol}.
+        
+        TEAM ANALYSIS SUMMARY:
+        {self._format_crew_results_summary(results)}
+        
+        Create a comprehensive executive summary that:
+        1. Highlights key consensus points across all experts
+        2. Identifies areas of disagreement and how to resolve them
+        3. Provides a unified investment thesis
+        4. Includes specific action items with priorities
+        5. Addresses key risks and mitigation strategies
+        6. Provides clear next steps for decision makers
+        
+        Format as a professional investment committee report suitable for senior leadership.
+        """
+        
+        try:
+            summary_response = self.multimodal_llm.analyze_with_context(summary_prompt)
+            executive_summary = summary_response.get('analysis', 'Summary generation failed')
+        except Exception as e:
+            executive_summary = f"Error generating summary: {str(e)}"
+        
+        return {
+            'executive_summary': executive_summary,
+            'overall_confidence': avg_confidence,
+            'total_insights': len(all_insights),
+            'key_insights': all_insights[:10],
+            'total_recommendations': len(all_recommendations),
+            'priority_recommendations': all_recommendations[:8],
+            'risk_factors': all_risks[:6],
+            'team_consensus': self._calculate_team_consensus(results),
+            'investment_thesis': self._generate_investment_thesis(results),
+            'action_items': self._generate_action_items(results),
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    def _format_crew_results_summary(self, results: List[Dict]) -> str:
+        """Format crew results for executive summary"""
+        formatted = []
+        
+        for result in results:
+            formatted.append(f"""
+            🤖 {result.get('agent_role', 'Unknown Agent')}:
+            Summary: {result.get('summary', 'No summary')[:200]}...
+            Confidence: {result.get('confidence', 0):.2f}
+            Key Insight: {result.get('key_insights', ['None'])[0] if result.get('key_insights') else 'None'}
+            Top Risk: {result.get('risks', ['None'])[0] if result.get('risks') else 'None'}
+            """)
+        
+        return "\n".join(formatted)
+    
+    def _calculate_team_consensus(self, results: List[Dict]) -> Dict[str, Any]:
+        """Calculate team consensus metrics"""
+        if not results:
+            return {'level': 'No consensus', 'score': 0.0}
+        
+        # Calculate based on confidence levels
+        high_confidence = sum(1 for r in results if r.get('confidence', 0) > 0.7)
+        consensus_score = high_confidence / len(results)
+        
+        if consensus_score >= 0.8:
+            level = 'Strong consensus'
+        elif consensus_score >= 0.6:
+            level = 'Moderate consensus'
+        else:
+            level = 'Mixed opinions'
+        
+        return {
+            'level': level,
+            'score': consensus_score,
+            'high_confidence_count': high_confidence,
+            'total_agents': len(results)
+        }
+    
+    def _generate_investment_thesis(self, results: List[Dict]) -> str:
+        """Generate unified investment thesis"""
+        # Extract key themes from all analyses
+        themes = []
+        for result in results:
+            if result.get('summary'):
+                themes.append(result['summary'])
+        
+        if themes:
+            return f"Based on comprehensive analysis from {len(results)} specialists, the investment thesis centers on: " + "; ".join(themes[:3])
+        return "Investment thesis pending complete analysis"
+    
+    def _generate_action_items(self, results: List[Dict]) -> List[Dict[str, str]]:
+        """Generate prioritized action items"""
+        action_items = []
+        
+        for result in results:
+            next_steps = result.get('next_steps', '')
+            if next_steps:
+                action_items.append({
+                    'action': next_steps[:100] + "..." if len(next_steps) > 100 else next_steps,
+                    'owner': result.get('agent_role', 'Unknown'),
+                    'priority': 'High' if result.get('confidence', 0) > 0.7 else 'Medium'
+                })
+        
+        return action_items[:6]  # Top 6 action items
+    
+    async def _gather_market_data(self, symbol: str) -> Dict[str, Any]:
+        """Gather comprehensive market data from multiple sources (CrewAI style)"""
+        market_data = {}
+        
+        print(f"📈 Collecting stock data for {symbol}...")
+        try:
+            market_data['stock_data'] = self.data_tools.get_stock_data(symbol)
+        except Exception as e:
+            market_data['stock_data'] = {'error': f'Stock data failed: {str(e)}'}
+        
+        print(f"📰 Gathering financial news for {symbol}...")
+        try:
+            market_data['news'] = self.data_tools.get_financial_news(symbol)
+        except Exception as e:
+            market_data['news'] = {'error': f'News data failed: {str(e)}'}
+        
+        print(f"📊 Calculating technical indicators for {symbol}...")
+        try:
+            market_data['technical_indicators'] = self.data_tools.calculate_technical_indicators(symbol)
+        except Exception as e:
+            market_data['technical_indicators'] = {'error': f'Technical indicators failed: {str(e)}'}
+        
+        print(f"🏢 Fetching company information for {symbol}...")
+        try:
+            market_data['company_info'] = self.data_tools.get_company_info(symbol)
+        except Exception as e:
+            market_data['company_info'] = {'error': f'Company info failed: {str(e)}'}
+        
+        print(f"📈 Analyzing market sentiment for {symbol}...")
+        try:
+            market_data['sentiment'] = self.data_tools.get_market_sentiment(symbol)
+        except Exception as e:
+            market_data['sentiment'] = {'error': f'Sentiment analysis failed: {str(e)}'}
+        
+        print(f"📊 Calculating support/resistance levels for {symbol}...")
+        try:
+            market_data['support_resistance'] = self.data_tools.calculate_support_resistance(symbol)
+        except Exception as e:
+            market_data['support_resistance'] = {'error': f'Support/resistance failed: {str(e)}'}
+        
+        print(f"📈 Analyzing volume profile for {symbol}...")
+        try:
+            market_data['volume_analysis'] = self.data_tools.analyze_volume_profile(symbol)
+        except Exception as e:
+            market_data['volume_analysis'] = {'error': f'Volume analysis failed: {str(e)}'}
+        
+        print("✅ Market data collection completed!")
+        return market_data

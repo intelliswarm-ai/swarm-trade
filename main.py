@@ -103,6 +103,7 @@ class ForexSignalApp:
         print("  /sentiment - Get market sentiment analysis")
         print("  /summary - Get comprehensive analysis")
         print("  /agents [symbol] - Run agentic workflow analysis")
+        print("  /crew [symbol] - Run CrewAI-style team analysis (no chart required)")
         print("  /debate [symbol] - Start agent debate for symbol")
         print("  /consensus - Get consensus from agent analysis")
         print("  /tools - Show available agent tools")
@@ -259,6 +260,25 @@ class ForexSignalApp:
                             print("❌ No image loaded. Use /screenshot or /analyze first")
                     else:
                         print("❌ Please provide symbol: /agents <symbol>")
+                
+                elif user_input.startswith('/crew'):
+                    parts = user_input.split(' ', 1)
+                    if len(parts) > 1:
+                        symbol = parts[1].upper().replace('$', '')  # Remove $ prefix if present
+                        print(f"🚀 Starting CrewAI-style team analysis for {symbol}...")
+                        print("👥 Deploying specialized expert team...")
+                        print("📊 Gathering market data from multiple sources...")
+                        try:
+                            import asyncio
+                            # Use chart if available, but not required for CrewAI analysis
+                            chart_path = current_image if current_image else None
+                            result = asyncio.run(self.agent_workflow.run_crew_analysis(symbol, chart_path))
+                            self.display_crew_result(result, symbol)
+                        except Exception as e:
+                            print(f"❌ Error in CrewAI analysis: {str(e)}")
+                            print(f"💡 Debug: Available methods: {[method for method in dir(self.multimodal_llm) if not method.startswith('_')]}")
+                    else:
+                        print("❌ Please provide symbol: /crew <symbol>")
                 
                 elif user_input.startswith('/debate'):
                     parts = user_input.split(' ', 1)
@@ -431,6 +451,77 @@ class ForexSignalApp:
         print(f"\n🎯 Final Consensus:")
         print(f"   Recommendation: {result.get('recommendation', 'N/A')}")
         print(f"   Confidence: {result.get('confidence', 0):.2f}")
+        
+        print("=" * 70)
+    
+    def display_crew_result(self, result, symbol):
+        """Display CrewAI-style crew analysis result"""
+        if not result:
+            print("❌ No result from CrewAI analysis")
+            return
+        
+        print(f"\n🚀 CrewAI Expert Team Analysis for {symbol}")
+        print("=" * 70)
+        
+        # Final report summary
+        final_report = result.get('final_report', {})
+        if final_report:
+            print(f"📊 Overall Confidence: {final_report.get('overall_confidence', 0):.2f}")
+            print(f"🎯 Team Consensus: {final_report.get('team_consensus', {}).get('level', 'Unknown')}")
+            print(f"📈 Investment Thesis: {final_report.get('investment_thesis', 'N/A')}")
+            
+            # Executive summary
+            executive_summary = final_report.get('executive_summary', '')
+            if executive_summary:
+                print(f"\n📋 Executive Summary:")
+                print("-" * 50)
+                print(executive_summary[:800] + "..." if len(executive_summary) > 800 else executive_summary)
+            
+            # Key insights
+            key_insights = final_report.get('key_insights', [])
+            if key_insights:
+                print(f"\n💡 Key Insights:")
+                print("-" * 50)
+                for i, insight in enumerate(key_insights[:5], 1):
+                    print(f"{i}. {insight}")
+            
+            # Priority recommendations
+            recommendations = final_report.get('priority_recommendations', [])
+            if recommendations:
+                print(f"\n🎯 Priority Recommendations:")
+                print("-" * 50)
+                for i, rec in enumerate(recommendations[:5], 1):
+                    print(f"{i}. {rec}")
+            
+            # Risk factors
+            risks = final_report.get('risk_factors', [])
+            if risks:
+                print(f"\n⚠️  Risk Factors:")
+                print("-" * 50)
+                for i, risk in enumerate(risks[:4], 1):
+                    print(f"{i}. {risk}")
+            
+            # Action items
+            action_items = final_report.get('action_items', [])
+            if action_items:
+                print(f"\n📋 Action Items:")
+                print("-" * 50)
+                for item in action_items[:4]:
+                    print(f"• {item.get('action', 'N/A')} [{item.get('priority', 'Medium')} Priority]")
+                    print(f"  Owner: {item.get('owner', 'Unknown')}")
+        
+        # Individual expert results
+        individual_results = result.get('individual_results', [])
+        if individual_results:
+            print(f"\n👥 Individual Expert Analysis:")
+            print("-" * 50)
+            
+            for expert in individual_results:
+                print(f"\n🤖 {expert.get('agent_role', 'Unknown Expert')}:")
+                print(f"   Summary: {expert.get('summary', 'No summary')[:150]}...")
+                print(f"   Confidence: {expert.get('confidence', 0):.2f}")
+                if expert.get('key_insights'):
+                    print(f"   Key Insight: {expert.get('key_insights', ['None'])[0]}")
         
         print("=" * 70)
     
